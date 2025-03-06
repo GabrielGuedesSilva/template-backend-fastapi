@@ -28,3 +28,4 @@ class Container(containers.DeclarativeContainer):
 
 
 container = Container()
+container.db_connection()
