@@ -13,7 +13,7 @@ router = APIRouter(
 )
 
 
-@router.post('/', status_code=HTTPStatus.CREATED, response_model=UserPublic)
+@router.post('', status_code=HTTPStatus.CREATED, response_model=UserPublic)
 def create_user(
     request: Request,
     user: UserSchema,
@@ -23,7 +23,7 @@ def create_user(
     return result
 
 
-@router.get('/', status_code=HTTPStatus.OK, response_model=List[UserPublic])
+@router.get('', status_code=HTTPStatus.OK, response_model=List[UserPublic])
 def get_users(
     request: Request,
     user_service: UserServiceDependency,
