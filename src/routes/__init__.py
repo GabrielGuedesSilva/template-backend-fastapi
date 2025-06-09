@@ -1,3 +1,3 @@
-from src.routes.users import router as users_router
+from src.routes.users import UserRouter
 
-routers = [users_router]
+routers_class = [UserRouter]

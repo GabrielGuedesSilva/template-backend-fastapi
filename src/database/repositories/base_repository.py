@@ -1,34 +1,36 @@
 from http import HTTPStatus
-from typing import Generic, List, Type, TypeVar
+from typing import Generic, List, Type, TypeVar, Union
+from uuid import UUID
 
 from fastapi import HTTPException
 from loguru import logger
+from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from src.database.query.query import Query
+from src.database.query import Query
 from src.utils.exceptions_messages import ExceptionsMessages
 
 ModelType = TypeVar('ModelType')
-SchemaType = TypeVar('SchemaType')
+SchemaType = TypeVar('SchemaType', bound=BaseModel)
 
 
-class BaseRepository(Generic[ModelType, SchemaType]):
-    def __init__(self, db_connection: Session, model: Type[ModelType]):
-        self.db_connection = db_connection
+class BaseRepository(Generic[ModelType]):
+    def __init__(self, session: Session, model: Type[ModelType]):
+        self.session = session()
         self.model = model
         self.model_name = self.model.__name__
 
-    def create(self, schema: SchemaType):
-        db_model = self.model(**schema.dict())
-        self.db_connection.session.add(db_model)
-        self.db_connection.session.commit()
-        self.db_connection.session.refresh(db_model)
+    def create(self, schema: SchemaType) -> ModelType:
+        db_model = self.model(**schema.model_dump())
+        self.session.add(db_model)
+        self.session.commit()
+        self.session.refresh(db_model)
         return db_model
 
     def find(self, query: Query) -> List[ModelType]:
-        query_builder = self.db_connection.session.query(self.model).order_by(
-            self.model.id
+        query_builder = self.session.query(self.model).order_by(
+            self.model.created_at.desc()
         )
 
         for key, value in query.filters.items():
@@ -44,33 +46,41 @@ class BaseRepository(Generic[ModelType, SchemaType]):
 
         return query_builder.all()
 
-    def find_by_id(self, id: int) -> ModelType:
-        query_builder = self.db_connection.session.query(self.model).filter_by(
-            id=id
-        )
+    def find_by_id(self, id: UUID) -> ModelType:
+        query_builder = self.session.query(self.model).filter_by(id=id)
+        return query_builder.first()
+
+    def find_one(self, query: Query) -> Union[ModelType, None]:
+        query_builder = self.session.query(self.model)
+
+        for key, value in query.filters.items():
+            if hasattr(self.model, key):
+                query_builder = query_builder.filter(
+                    getattr(self.model, key) == value
+                )
 
         return query_builder.first()
 
-    def update(self, id: int, schema: SchemaType) -> ModelType:
+    def update(self, id: UUID, schema: SchemaType) -> ModelType:
         db_model = self.find_by_id(id)
 
-        for key, value in schema.dict(exclude_unset=True).items():
+        for key, value in schema.model_dump(exclude_unset=True).items():
             setattr(db_model, key, value)
 
-        self.db_connection.session.commit()
-        self.db_connection.session.refresh(db_model)
+        self.session.commit()
+        self.session.refresh(db_model)
 
         return db_model
 
-    def delete(self, id: int) -> bool:
+    def delete(self, id: UUID) -> bool:
         db_model = self.find_by_id(id)
 
-        self.db_connection.session.delete(db_model)
-        self.db_connection.session.commit()
+        self.session.delete(db_model)
+        self.session.commit()
 
         return True
 
-    def check_exists(self, id: int):
+    def check_exists(self, id: UUID) -> bool:
         if self.find_by_id(id) is not None:
             return True
         else:
@@ -84,7 +94,9 @@ class BaseRepository(Generic[ModelType, SchemaType]):
                 ),
             )
 
-    def check_duplicity(self, schema: SchemaType, unique_fields):
+    def check_duplicity(
+        self, schema: SchemaType, unique_fields: List[str]
+    ) -> bool:
         filters = [
             getattr(self.model, field) == getattr(schema, field)
             for field in unique_fields
@@ -95,9 +107,7 @@ class BaseRepository(Generic[ModelType, SchemaType]):
             return False
 
         existing_record = (
-            self.db_connection.session.query(self.model)
-            .filter(or_(*filters))
-            .first()
+            self.session.query(self.model).filter(or_(*filters)).first()
         )
 
         if existing_record:

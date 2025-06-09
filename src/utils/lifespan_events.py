@@ -1,11 +1,12 @@
-from src.di.container import container
+from src.background.scheduler import scheduler
 from src.utils.logger import logger
 
 
 async def startup():
-    db_connection = container.db_connection()
-    db_connection.check_connection()
+    logger.info('Inicializando a aplicação...')
+    scheduler.start()
 
 
 async def shutdown():
-    logger.info('A aplicação está sendo desligada.')
+    scheduler.shutdown()
+    logger.info('Encerrando a aplicação...')

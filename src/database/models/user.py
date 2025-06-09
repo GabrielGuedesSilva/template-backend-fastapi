@@ -1,23 +1,31 @@
-from datetime import datetime
+from uuid import uuid4
 
-from sqlalchemy import func
-from sqlalchemy.orm import Mapped, mapped_column, registry
+from sqlalchemy import Column, DateTime, String, func
+from sqlalchemy.dialects.postgresql import UUID
 
-table_registry = registry()
+from src.database.models import Base
 
 
-@table_registry.mapped_as_dataclass
-class User:
+class User(Base):
     # Nome da tabela no bd
     __tablename__ = 'users'
 
-    id: Mapped[int] = mapped_column(init=False, primary_key=True)
-    username: Mapped[str] = mapped_column(unique=True)
-    password: Mapped[str]
-    email: Mapped[str] = mapped_column(unique=True)
-    created_at: Mapped[datetime] = mapped_column(
-        init=False, server_default=func.now()
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+        nullable=False,
     )
-    updated_at: Mapped[datetime] = mapped_column(
-        init=False, server_default=func.now(), onupdate=func.now()
+    name = Column(String(50), nullable=False)
+    email = Column(String(100), unique=True, nullable=False)
+    password = Column(String(255), nullable=False)
+    created_at = Column(
+        DateTime, default=func.now(), server_default=func.now(), nullable=False
+    )
+    updated_at = Column(
+        DateTime,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )

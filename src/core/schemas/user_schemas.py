@@ -1,25 +1,29 @@
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
+from .types import NonEmptyStr, UserName
 
-class UserSchema(BaseModel):
-    username: str
+
+class UserCreateSchema(BaseModel):
+    name: UserName
     email: EmailStr
     password: str
 
 
-class UserPublic(BaseModel):
-    id: int
-    username: str
+class UserSchema(BaseModel):
+    id: UUID
+    name: UserName
     email: EmailStr
     created_at: datetime
     updated_at: datetime
+
     model_config = ConfigDict(from_attributes=True)
 
 
-class UserUpdate(BaseModel):
-    username: Optional[str] = None
+class UserUpdateSchema(BaseModel):
+    name: Optional[UserName] = None
     email: Optional[EmailStr] = None
     password: Optional[str] = None
